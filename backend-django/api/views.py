@@ -79,10 +79,16 @@ class AccountBalanceView(APIView):
 
 class TotalLiquidityView(APIView):
     def get(self, request):
-        total = Account.objects.filter(user=request.user).aggregate(
+        # Total = account balances if accounts exist, else sum of all transactions
+        account_total = Account.objects.filter(user=request.user).aggregate(
             total=Sum('balance')
+        )['total']
+        if account_total is not None:
+            return Response({'total': str(account_total)})
+        tx_total = Transaction.objects.filter(user=request.user).aggregate(
+            total=Sum('amount')
         )['total'] or 0
-        return Response({'total': str(total)})
+        return Response({'total': str(tx_total)})
 
 
 # ── Transactions ──────────────────────────────────────────────
@@ -100,7 +106,14 @@ class TransactionListCreateView(generics.ListCreateAPIView):
         return qs[offset: offset + limit]
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        transaction = serializer.save(user=self.request.user)
+        if transaction.account_id:
+            try:
+                acc = Account.objects.get(pk=transaction.account_id, user=self.request.user)
+                acc.balance = float(acc.balance) + float(transaction.amount)
+                acc.save(update_fields=['balance'])
+            except Account.DoesNotExist:
+                pass
 
 
 class TransactionDetailView(generics.DestroyAPIView):
