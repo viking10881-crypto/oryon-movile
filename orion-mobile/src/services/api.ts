@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// En desarrollo usa la IP de tu máquina (no localhost — el emulador no lo resuelve)
-// Cambia por tu IP local cuando pruebes en dispositivo físico o emulador Android
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'https://oryon-movile.onrender.com';
 
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('token');
