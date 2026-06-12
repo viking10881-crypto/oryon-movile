@@ -8,6 +8,7 @@ urlpatterns = [
     # Auth
     path('auth/register/', views.RegisterView.as_view()),
     path('auth/login/', views.LoginView.as_view()),
+    path('auth/profile/', views.ProfileView.as_view()),
 
     # Accounts
     path('accounts/', views.AccountListCreateView.as_view()),

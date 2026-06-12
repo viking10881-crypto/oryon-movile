@@ -166,6 +166,22 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Task.objects.filter(user=self.request.user)
 
 
+# ── Profile ───────────────────────────────────────────────────
+
+class ProfileView(APIView):
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        user = request.user
+        if 'name' in request.data:
+            user.first_name = request.data['name']
+        if 'avatar_url' in request.data:
+            user.avatar_url = request.data['avatar_url']
+        user.save()
+        return Response(UserSerializer(user).data)
+
+
 # ── Health ────────────────────────────────────────────────────
 
 class HealthView(APIView):
