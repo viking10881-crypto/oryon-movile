@@ -1,7 +1,7 @@
 // Reemplaza estos dos valores con los de tu dashboard:
 // cloudinary.com → Settings → Upload Presets → "+ Add upload preset" (mode: Unsigned)
-const CLOUD_NAME = 'TU_CLOUD_NAME';      // ← tu Cloud name (esquina superior del dashboard)
-const UPLOAD_PRESET = 'TU_UPLOAD_PRESET'; // ← nombre del preset sin firma que creaste
+const CLOUD_NAME = 'diuaog5qb';
+const UPLOAD_PRESET = 'jzxx6pk1';
 
 export async function uploadImage(localUri: string): Promise<string> {
   const ext = localUri.split('.').pop()?.toLowerCase() ?? 'jpg';
