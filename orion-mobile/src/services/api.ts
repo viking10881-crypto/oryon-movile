@@ -19,20 +19,27 @@ async function request<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error en la solicitud');
+  if (!res.ok) {
+    const msg =
+      data.error ||
+      data.detail ||
+      (typeof data === 'object' ? Object.values(data).flat().join(' ') : null) ||
+      'Error en la solicitud';
+    throw new Error(String(msg));
+  }
   return data as T;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────
 export const authApi = {
   register: (name: string, email: string, password: string) =>
-    request<{ token: string; user: User }>('/auth/register', {
+    request<{ token: string; user: User }>('/auth/register/', {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     }),
 
   login: (email: string, password: string) =>
-    request<{ token: string; user: User }>('/auth/login', {
+    request<{ token: string; user: User }>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
@@ -40,10 +47,10 @@ export const authApi = {
 
 // ─── Accounts ─────────────────────────────────────────────────
 export const accountsApi = {
-  list: () => request<Account[]>('/accounts'),
-  totalLiquidity: () => request<{ total: string }>('/accounts/total-liquidity'),
+  list: () => request<Account[]>('/accounts/'),
+  totalLiquidity: () => request<{ total: string }>('/accounts/total-liquidity/'),
   create: (data: { name: string; type: string; balance?: number; currency?: string }) =>
-    request<Account>('/accounts', { method: 'POST', body: JSON.stringify(data) }),
+    request<Account>('/accounts/', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // ─── Transactions ─────────────────────────────────────────────
@@ -53,34 +60,34 @@ export const transactionsApi = {
     if (params?.type) qs.set('type', params.type);
     if (params?.limit) qs.set('limit', String(params.limit));
     if (params?.offset) qs.set('offset', String(params.offset));
-    return request<Transaction[]>(`/transactions?${qs.toString()}`);
+    return request<Transaction[]>(`/transactions/?${qs.toString()}`);
   },
-  summary: () => request<{ total_income: string; total_expense: string }>('/transactions/summary'),
+  summary: () => request<{ total_income: string; total_expense: string }>('/transactions/summary/'),
   create: (data: Partial<Transaction>) =>
-    request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(data) }),
-  delete: (id: string) => request<void>(`/transactions/${id}`, { method: 'DELETE' }),
+    request<Transaction>('/transactions/', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/transactions/${id}/`, { method: 'DELETE' }),
 };
 
 // ─── Tasks ────────────────────────────────────────────────────
 export const tasksApi = {
   list: (date?: string) => {
     const qs = date ? `?date=${date}` : '';
-    return request<Task[]>(`/tasks${qs}`);
+    return request<Task[]>(`/tasks/${qs}`);
   },
   create: (data: { title: string; priority?: string; due_date?: string; notes?: string }) =>
-    request<Task>('/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    request<Task>('/tasks/', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<Task>) =>
-    request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+    request<Task>(`/tasks/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/tasks/${id}/`, { method: 'DELETE' }),
 };
 
 // ─── Debts ────────────────────────────────────────────────────
 export const debtsApi = {
-  list: () => request<Debt[]>('/debts'),
+  list: () => request<Debt[]>('/debts/'),
   create: (data: Partial<Debt>) =>
-    request<Debt>('/debts', { method: 'POST', body: JSON.stringify(data) }),
+    request<Debt>('/debts/', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<Debt>) =>
-    request<Debt>(`/debts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    request<Debt>(`/debts/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
 // ─── Tipos ────────────────────────────────────────────────────
