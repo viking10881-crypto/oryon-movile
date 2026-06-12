@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +16,8 @@ import { AnimatedFadeSlide } from '../../theme/AnimatedFadeSlide';
 import { AnimatedProgressBar } from '../../theme/AnimatedProgressBar';
 import { accountsApi, transactionsApi, debtsApi, Transaction, Account, Debt } from '../../services/api';
 import { getTxVisual, formatMoney, formatTxAmount, formatTime, isSameDay } from '../../services/txUtils';
+import AddAccountModal from '../../components/AddAccountModal';
+import AddTransactionModal from '../../components/AddTransactionModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +59,8 @@ function groupTransactions(txs: Transaction[]): { group: string; items: Transact
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 20;
+
 export default function FinanceScreen() {
   const [period, setPeriod] = useState<'Mensual' | 'Semanal'>('Mensual');
   const [search, setSearch] = useState('');
@@ -63,10 +68,12 @@ export default function FinanceScreen() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -74,15 +81,30 @@ export default function FinanceScreen() {
       const [accs, dts, txs] = await Promise.all([
         accountsApi.list(),
         debtsApi.list(),
-        transactionsApi.list({ limit: 20 }),
+        transactionsApi.list({ limit: PAGE_SIZE, offset: 0 }),
       ]);
       setAccounts(accs);
       setDebts(dts);
       setTransactions(txs);
-    } catch (err) {
-      console.error(err);
+      setHasMore(txs.length === PAGE_SIZE);
+    } catch {
+      // silently show empty state on network error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await transactionsApi.list({ limit: PAGE_SIZE, offset: transactions.length });
+      setTransactions((prev) => [...prev, ...more]);
+      setHasMore(more.length === PAGE_SIZE);
+    } catch {
+      // silently stop pagination on error
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -149,7 +171,7 @@ export default function FinanceScreen() {
         <AnimatedFadeSlide delay={140}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Cuentas</Text>
-            <TouchableOpacity style={styles.addBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.addBtn} onPress={() => setShowAccountModal(true)} activeOpacity={0.7}>
               <Ionicons name="add" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
@@ -293,15 +315,33 @@ export default function FinanceScreen() {
             ))
           )}
 
-          {!loading && grouped.length > 0 && (
-            <TouchableOpacity style={styles.loadMoreBtn} activeOpacity={0.75}>
-              <Text style={styles.loadMoreText}>Cargar Más Historial</Text>
+          {!loading && hasMore && (
+            <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMore} activeOpacity={0.75} disabled={loadingMore}>
+              {loadingMore
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <Text style={styles.loadMoreText}>Cargar Más Historial</Text>}
             </TouchableOpacity>
           )}
         </AnimatedFadeSlide>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      <TouchableOpacity style={styles.fab} onPress={() => setShowTxModal(true)} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <AddAccountModal
+        visible={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+        onCreated={loadData}
+      />
+      <AddTransactionModal
+        visible={showTxModal}
+        onClose={() => setShowTxModal(false)}
+        onCreated={loadData}
+        defaultType="expense"
+      />
     </SafeAreaView>
   );
 }
@@ -622,5 +662,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 10,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });

@@ -9,11 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { AnimatedFadeSlide } from '../../theme/AnimatedFadeSlide';
 import { accountsApi, transactionsApi, Transaction } from '../../services/api';
 import { getTxVisual, formatMoney, formatTxAmount } from '../../services/txUtils';
+import AddTransactionModal from '../../components/AddTransactionModal';
+import AddTaskModal from '../../components/AddTaskModal';
 
 const QUICK_ACTIONS = [
   {
@@ -49,10 +52,11 @@ export default function HomeScreen() {
   const [liquidity, setLiquidity] = useState('0.00');
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [txDefaultType, setTxDefaultType] = useState<'expense' | 'income'>('expense');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -68,11 +72,22 @@ export default function HomeScreen() {
       }
       setLiquidity(formatMoney(liqRes.total));
       setRecentTx(txRes);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // silently show empty state on network error
     } finally {
       setLoading(false);
     }
+  };
+
+  const openTx = (type: 'expense' | 'income') => {
+    setTxDefaultType(type);
+    setShowTxModal(true);
+  };
+
+  const handleActionPress = (id: string) => {
+    if (id === 'expense') openTx('expense');
+    else if (id === 'task') setShowTaskModal(true);
+    else if (id === 'reports') router.push('/(tabs)/finance');
   };
 
   return (
@@ -87,7 +102,7 @@ export default function HomeScreen() {
             <Ionicons name="menu-outline" size={28} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerLogo}>Oryon360</Text>
-          <TouchableOpacity style={styles.avatarBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.avatarBtn} onPress={() => router.push('/(tabs)/stats')} activeOpacity={0.7}>
             <View style={styles.avatarCircle}>
               <Ionicons name="person-outline" size={20} color={colors.primary} />
             </View>
@@ -111,11 +126,11 @@ export default function HomeScreen() {
             <Text style={styles.liquidityLabel}>LIQUIDEZ TOTAL</Text>
             <Text style={styles.liquidityAmount}>${liquidity}</Text>
             <View style={styles.liquidityActions}>
-              <TouchableOpacity style={styles.addFundsBtn} activeOpacity={0.85}>
+              <TouchableOpacity style={styles.addFundsBtn} onPress={() => openTx('income')} activeOpacity={0.85}>
                 <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addFundsText}>Agregar Fondos</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.transferBtn} activeOpacity={0.85}>
+              <TouchableOpacity style={styles.transferBtn} onPress={() => openTx('expense')} activeOpacity={0.85}>
                 <Ionicons name="share-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.transferText}>Transferir</Text>
               </TouchableOpacity>
@@ -123,11 +138,11 @@ export default function HomeScreen() {
           </View>
         </AnimatedFadeSlide>
 
-        {/* Quick Actions — stagger per item */}
+        {/* Quick Actions */}
         <View style={styles.quickActions}>
           {QUICK_ACTIONS.map((action, index) => (
             <AnimatedFadeSlide key={action.id} delay={180 + index * 70}>
-              <TouchableOpacity style={styles.actionCard} activeOpacity={0.75}>
+              <TouchableOpacity style={styles.actionCard} onPress={() => handleActionPress(action.id)} activeOpacity={0.75}>
                 <View style={[styles.actionIconBg, { backgroundColor: action.iconBg }]}>
                   <Ionicons name={action.icon} size={22} color={action.iconColor} />
                 </View>
@@ -135,6 +150,7 @@ export default function HomeScreen() {
                   <Text style={styles.actionTitle}>{action.title}</Text>
                   <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
                 </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.muted} />
               </TouchableOpacity>
             </AnimatedFadeSlide>
           ))}
@@ -147,7 +163,7 @@ export default function HomeScreen() {
               <Text style={styles.chartTitle}>{'Ingresos vs\nGastos'}</Text>
               <View style={styles.chartLegend}>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.text }]} />
+                  <View style={[styles.legendDot, { backgroundColor: colors.income }]} />
                   <Text style={styles.legendText}>Ingresos</Text>
                 </View>
                 <View style={styles.legendItem}>
@@ -174,7 +190,7 @@ export default function HomeScreen() {
           <View style={styles.activitySection}>
             <View style={styles.activityHeader}>
               <Text style={styles.sectionTitle}>Actividad Reciente</Text>
-              <TouchableOpacity activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/finance')} activeOpacity={0.7}>
                 <Text style={styles.viewAllLink}>Ver Todo</Text>
               </TouchableOpacity>
             </View>
@@ -192,30 +208,17 @@ export default function HomeScreen() {
                   const { icon, iconBg, iconColor } = getTxVisual(tx);
                   const amount = Number(tx.amount);
                   return (
-                    <View
-                      key={tx.id}
-                      style={[
-                        styles.activityItem,
-                        index < recentTx.length - 1 && styles.activityItemBorder,
-                      ]}
-                    >
+                    <View key={tx.id} style={[styles.activityItem, index < recentTx.length - 1 && styles.activityItemBorder]}>
                       <View style={[styles.activityIconBg, { backgroundColor: iconBg }]}>
                         <Ionicons name={icon} size={20} color={iconColor} />
                       </View>
                       <View style={styles.activityInfo}>
                         <Text style={styles.activityTitle}>{tx.title}</Text>
                         <Text style={styles.activityDate}>
-                          {new Date(tx.date).toLocaleDateString('es-MX', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                          })}
+                          {new Date(tx.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </Text>
                       </View>
-                      <Text
-                        style={[
-                          styles.activityAmount,
-                          { color: amount < 0 ? colors.expense : colors.income },
-                        ]}
-                      >
+                      <Text style={[styles.activityAmount, { color: amount < 0 ? colors.expense : colors.income }]}>
                         {formatTxAmount(amount)}
                       </Text>
                     </View>
@@ -229,10 +232,23 @@ export default function HomeScreen() {
         <View style={styles.fabSpacer} />
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={() => openTx('expense')} activeOpacity={0.85}>
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Modales */}
+      <AddTransactionModal
+        visible={showTxModal}
+        onClose={() => setShowTxModal(false)}
+        onCreated={loadData}
+        defaultType={txDefaultType}
+      />
+      <AddTaskModal
+        visible={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onCreated={() => {}}
+      />
     </SafeAreaView>
   );
 }

@@ -18,13 +18,31 @@ async function request<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-  const data = await res.json();
+
+  const text = await res.text();
+
+  // HTML means the server returned an error page (Render sleeping, Django 500, etc.)
+  if (!text || text.trimStart().startsWith('<')) {
+    throw new Error(
+      res.ok
+        ? 'El servidor devolvió una respuesta inesperada'
+        : `Sin conexión con el servidor (${res.status})`
+    );
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Respuesta inválida del servidor (${res.status})`);
+  }
+
   if (!res.ok) {
     const msg =
       data.error ||
       data.detail ||
       (typeof data === 'object' ? Object.values(data).flat().join(' ') : null) ||
-      'Error en la solicitud';
+      `Error ${res.status}`;
     throw new Error(String(msg));
   }
   return data as T;
@@ -42,6 +60,14 @@ export const authApi = {
     request<{ token: string; user: User }>('/auth/login/', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+
+  getProfile: () => request<User>('/auth/profile/'),
+
+  updateProfile: (data: { name?: string; avatar_url?: string }) =>
+    request<User>('/auth/profile/', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     }),
 };
 
@@ -96,7 +122,8 @@ export interface User {
   name: string;
   email: string;
   plan: string;
-  created_at: string;
+  avatar_url: string | null;
+  date_joined: string;
 }
 
 export interface Account {

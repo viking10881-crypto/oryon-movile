@@ -13,6 +13,7 @@ import { spacing } from '../../theme/spacing';
 import { AnimatedFadeSlide } from '../../theme/AnimatedFadeSlide';
 import { tasksApi, Task as ApiTask } from '../../services/api';
 import { getWeekDays, toDateParam } from '../../services/txUtils';
+import AddTaskModal from '../../components/AddTaskModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,9 @@ export default function AgendaScreen() {
   const [selectedDay, setSelectedDay] = useState(today.getDate());
   const [tasks, setTasks] = useState<ApiTask[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+
+  const selectedDate = DAYS.find((d) => d.day === selectedDay)?.date ?? today;
 
   const loadTasks = useCallback(async (dayNum: number) => {
     const dayObj = DAYS.find((d) => d.day === dayNum);
@@ -77,8 +81,8 @@ export default function AgendaScreen() {
       );
       const data = await tasksApi.list(dateParam);
       setTasks(data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // silently show empty state on network error
     } finally {
       setLoading(false);
     }
@@ -175,7 +179,7 @@ export default function AgendaScreen() {
         <AnimatedFadeSlide delay={160}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Tareas de Hoy</Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => setShowTaskModal(true)} activeOpacity={0.7}>
               <Text style={styles.addNewLink}>+ Agregar</Text>
             </TouchableOpacity>
           </View>
@@ -269,7 +273,7 @@ export default function AgendaScreen() {
             <Text style={styles.suggestionBody}>
               Tienes tiempo libre disponible. ¿Deseas revisar tus proyecciones financieras o programar una nueva tarea?
             </Text>
-            <TouchableOpacity style={styles.scheduleBtn} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.scheduleBtn} onPress={() => setShowTaskModal(true)} activeOpacity={0.85}>
               <Text style={styles.scheduleBtnText}>PROGRAMAR AHORA</Text>
             </TouchableOpacity>
           </View>
@@ -277,6 +281,13 @@ export default function AgendaScreen() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <AddTaskModal
+        visible={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        onCreated={() => loadTasks(selectedDay)}
+        selectedDate={selectedDate}
+      />
     </SafeAreaView>
   );
 }
